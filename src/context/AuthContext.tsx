@@ -19,7 +19,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('AuthContext: getSession error:', error);
+        // If the refresh token is invalid or not found, sign out to clear local storage
+        if (error.message?.includes('Refresh Token Not Found') || error.message?.includes('invalid_refresh_token')) {
+          supabase.auth.signOut();
+        }
+        setLoading(false);
+        return;
+      }
+      
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
@@ -29,11 +39,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Listen for changes on auth state (sign in, sign out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+      } else if (event === 'TOKEN_REFRESHED') {
+        setUser(session?.user ?? null);
+      } else if (session?.user) {
+        setUser(session.user);
         fetchProfile(session.user.id);
       } else {
+        setUser(null);
         setProfile(null);
         setLoading(false);
       }
@@ -81,8 +98,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
       setProfile(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('AuthContext: fetchProfile failed:', error);
+      // If the profile fetch fails because of a token error, sign out to clear local storage
+      if (error.message?.includes('Refresh Token Not Found') || error.message?.includes('invalid_refresh_token')) {
+        supabase.auth.signOut();
+      }
     } finally {
       setLoading(false);
     }

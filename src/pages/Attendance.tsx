@@ -17,7 +17,7 @@ import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
 
 export default function AttendancePage() {
-  const [selectedClass, setSelectedClass] = useState('1');
+  const [selectedClass, setSelectedClass] = useState('Nursery');
   const [selectedSection, setSelectedSection] = useState('A');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendanceData, setAttendanceData] = useState<Record<string, 'present' | 'absent'>>({});
@@ -98,7 +98,7 @@ export default function AttendancePage() {
     setAttendanceData(newData);
   };
 
-  const classes = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+  const classes = ['Nursery', 'LKG', 'UKG', '1', '2', '3', '4'];
 
   return (
     <div className="space-y-6">

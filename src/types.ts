@@ -16,6 +16,8 @@ export interface Student {
   phone: string | null;
   address: string | null;
   roll_number: number | null;
+  uses_transport: boolean;
+  transport_fee: number | null;
   created_at: string;
 }
 
@@ -72,4 +74,24 @@ export interface Expense {
   category: string;
   date: string;
   created_at: string;
+}
+
+export interface ClassExtraFee {
+  id: string;
+  class_name: string;
+  amount: number;
+  category: string;
+  month_year: string;
+  created_at: string;
+}
+
+export interface FundTransaction {
+  id: string;
+  type: 'CREDIT' | 'DEBIT';
+  amount: number;
+  category?: 'NEW_ADMISSION' | 'OLD_ADMISSION' | 'MONTHLY_FEES' | 'OTHERS';
+  remark: string;
+  created_by: string;
+  created_at: string;
+  profiles?: { full_name: string };
 }

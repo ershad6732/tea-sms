@@ -10,6 +10,8 @@ import Attendance from './pages/Attendance';
 import Fees from './pages/Fees';
 import Staff from './pages/Staff';
 import Expenses from './pages/Expenses';
+import Funds from './pages/Funds';
+import Reports from './pages/Reports';
 import More from './pages/More';
 import StudentProfile from './pages/StudentProfile';
 
@@ -87,6 +89,18 @@ export default function App() {
             <Route path="/expenses" element={
               <PrivateRoute title="Expenses">
                 <Expenses />
+              </PrivateRoute>
+            } />
+            
+            <Route path="/funds" element={
+              <PrivateRoute title="Fund Management">
+                <Funds />
+              </PrivateRoute>
+            } />
+            
+            <Route path="/reports" element={
+              <PrivateRoute title="Reports">
+                <Reports />
               </PrivateRoute>
             } />
             

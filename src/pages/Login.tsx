@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
-import { useAuth } from "../context/AuthContext";
-import { LogIn, School, Loader2 } from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
+import { LogIn, School, Loader2 } from 'lucide-react';
 
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
@@ -14,7 +14,7 @@ export default function Login() {
 
   useEffect(() => {
     if (user) {
-      navigate("/", { replace: true });
+      navigate('/', { replace: true });
     }
   }, [user, navigate]);
 
@@ -31,7 +31,7 @@ export default function Login() {
       if (error) throw error;
       // Navigation will be handled by the useEffect above when user state updates
     } catch (err: any) {
-      setError(err.message || "Failed to login");
+      setError(err.message || 'Failed to login');
     } finally {
       setLoading(false);
     }
@@ -46,7 +46,7 @@ export default function Login() {
           </div>
         </div>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 tracking-tight">
-          The Enlightened Academy
+          Gramshala SMS
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           School Management System
@@ -57,10 +57,7 @@ export default function Login() {
         <div className="bg-white py-8 px-6 shadow-xl rounded-3xl sm:px-10 border border-gray-100">
           <form className="space-y-6" onSubmit={handleLogin}>
             <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
-              >
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email address
               </label>
               <div className="mt-1">
@@ -79,10 +76,7 @@ export default function Login() {
             </div>
 
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
-              >
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
               <div className="mt-1">
@@ -127,16 +121,14 @@ export default function Login() {
               </button>
             </div>
           </form>
-
+          
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">
-                  Demo Credentials
-                </span>
+                <span className="px-2 bg-white text-gray-500">Demo Credentials</span>
               </div>
             </div>
             <div className="mt-4 text-xs text-gray-500 text-center space-y-1">

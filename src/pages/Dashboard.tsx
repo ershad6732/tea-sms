@@ -31,10 +31,10 @@ export default function Dashboard() {
       ] = await Promise.all([
         supabase.from('students').select('*', { count: 'exact', head: true }),
         supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('date', today).eq('status', 'present'),
-        supabase.from('payments').select('amount').eq('month_year', currentMonth),
+        supabase.from('payments').select('student_id, amount').eq('month_year', currentMonth),
         supabase.from('expenses').select('amount').gte('date', startOfMonth),
         supabase.from('class_fees').select('*'),
-        supabase.from('students').select('class_name')
+        supabase.from('students').select('id, class_name, uses_transport, transport_fee')
       ]);
 
       const totalFees = (payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
@@ -42,11 +42,25 @@ export default function Dashboard() {
       const attendanceRate = studentCount ? Math.round((presentCount || 0) / studentCount * 100) : 0;
 
       // Calculate real pending dues for current month
-      const totalExpected = (allStudents || []).reduce((sum, s) => {
-        const fee = classFees?.find(cf => cf.class_name === s.class_name)?.monthly_amount || 0;
-        return sum + Number(fee);
-      }, 0);
-      const pendingDues = Math.max(0, totalExpected - totalFees);
+      const currentMonthPayments = payments || [];
+      const studentDues = (allStudents || []).map(student => {
+        const classFee = classFees?.find(cf => cf.class_name === student.class_name)?.monthly_amount || 0;
+        const transportFee = student.uses_transport ? (student.transport_fee || 0) : 0;
+        const expectedTotal = Number(classFee) + Number(transportFee);
+        
+        const paidTotal = currentMonthPayments
+          .filter(p => p.student_id === student.id)
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+        
+        return {
+          studentId: student.id,
+          due: Math.max(0, expectedTotal - paidTotal),
+          isUnpaid: paidTotal < expectedTotal
+        };
+      });
+
+      const pendingDues = studentDues.reduce((sum, d) => sum + d.due, 0);
+      const unpaidStudentCount = studentDues.filter(d => d.isUnpaid && d.due > 0).length;
 
       return {
         studentCount,
@@ -54,6 +68,7 @@ export default function Dashboard() {
         totalFees,
         totalExpenses,
         pendingDues,
+        unpaidStudentCount,
       };
     }
   });
@@ -126,7 +141,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-start">
             <div>
               <h3 className="text-lg font-bold">Pending Dues</h3>
-              <p className="text-indigo-100 text-sm mt-1">12 students have unpaid fees</p>
+              <p className="text-indigo-100 text-sm mt-1">{stats?.unpaidStudentCount || 0} students have unpaid fees</p>
               <p className="text-3xl font-bold mt-4">{formatCurrency(stats?.pendingDues || 0)}</p>
             </div>
             <div className="bg-white/20 p-2 rounded-xl">
@@ -166,31 +181,35 @@ export default function Dashboard() {
       </div>
 
       {/* Recent Activity Placeholder */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-gray-900">Recent Payments</h3>
-          <Link to="/fees" className="text-indigo-600 text-sm font-bold">View All</Link>
-        </div>
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
-              <div className="flex items-center">
-                <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-700">
-                  <IndianRupee className="h-5 w-5" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-bold text-gray-900">Student Name {i}</p>
-                  <p className="text-xs text-gray-500">Class 5A • Tuition Fee</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-bold text-gray-900">{formatCurrency(1500)}</p>
-                <p className="text-xs text-gray-500">Today</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      
     </div>
   );
 }
+
+
+
+// <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+//         <div className="flex justify-between items-center mb-4">
+//           <h3 className="text-lg font-bold text-gray-900">Recent Payments</h3>
+//           <Link to="/fees" className="text-indigo-600 text-sm font-bold">View All</Link>
+//         </div>
+//         <div className="space-y-4">
+//           {[1, 2, 3].map((i) => (
+//             <div key={i} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+//               <div className="flex items-center">
+//                 <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-700">
+//                   <IndianRupee className="h-5 w-5" />
+//                 </div>
+//                 <div className="ml-3">
+//                   <p className="text-sm font-bold text-gray-900">Student Name {i}</p>
+//                   <p className="text-xs text-gray-500">Class 4A • Tuition Fee</p>
+//                 </div>
+//               </div>
+//               <div className="text-right">
+//                 <p className="text-sm font-bold text-gray-900">{formatCurrency(1500)}</p>
+//                 <p className="text-xs text-gray-500">Today</p>
+//               </div>
+//             </div>
+//           ))}
+//         </div>
+//       </div>

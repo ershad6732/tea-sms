@@ -268,13 +268,15 @@ export default function Students() {
           />
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => setIsBulkModalOpen(true)}
-            className="px-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm text-gray-600 font-bold flex items-center gap-2 hover:bg-gray-50 transition-all"
-          >
-            <Upload className="h-5 w-5" />
-            <span className="hidden md:inline">Bulk Import</span>
-          </button>
+          {profile?.role !== 'teacher' && (
+            <button
+              onClick={() => setIsBulkModalOpen(true)}
+              className="px-4 py-3 bg-white border border-gray-200 rounded-2xl shadow-sm text-gray-600 font-bold flex items-center gap-2 hover:bg-gray-50 transition-all"
+            >
+              <Upload className="h-5 w-5" />
+              <span className="hidden md:inline">Bulk Import</span>
+            </button>
+          )}
           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
             {classes.map(c => (
               <button
@@ -338,17 +340,19 @@ export default function Students() {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedStudentForEdit(student);
-                    setUsesTransport(student.uses_transport);
-                    setIsEditModalOpen(true);
-                  }}
-                  className="p-2 rounded-xl bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
-                >
-                  <User className="h-5 w-5" />
-                </button>
+                {profile?.role !== 'teacher' && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedStudentForEdit(student);
+                      setUsesTransport(student.uses_transport);
+                      setIsEditModalOpen(true);
+                    }}
+                    className="p-2 rounded-xl bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+                  >
+                    <User className="h-5 w-5" />
+                  </button>
+                )}
                 {profile?.role === 'admin' && (
                   <button 
                     onClick={(e) => {
@@ -370,12 +374,14 @@ export default function Students() {
       </div>
 
       {/* Floating Action Button */}
-      <button
-        onClick={() => setIsAddModalOpen(true)}
-        className="fixed bottom-24 right-6 md:bottom-8 md:right-8 h-14 w-14 bg-indigo-600 text-white rounded-2xl shadow-xl flex items-center justify-center hover:bg-indigo-700 transition-all active:scale-90 z-40"
-      >
-        <Plus className="h-8 w-8" />
-      </button>
+      {profile?.role !== 'teacher' && (
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="fixed bottom-24 right-6 md:bottom-8 md:right-8 h-14 w-14 bg-indigo-600 text-white rounded-2xl shadow-xl flex items-center justify-center hover:bg-indigo-700 transition-all active:scale-90 z-40"
+        >
+          <Plus className="h-8 w-8" />
+        </button>
+      )}
 
       {/* Bulk Import Modal */}
       <AnimatePresence>

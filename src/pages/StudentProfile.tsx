@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { Student, Payment } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { 
   ArrowLeft, 
   User, 
@@ -22,6 +23,7 @@ import * as htmlToImage from 'html-to-image';
 export default function StudentProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const idCardRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -169,7 +171,9 @@ export default function StudentProfile() {
                     </div>
                     <div>
                       <p className="text-[10px] uppercase tracking-wider font-bold text-indigo-400">Transport Service</p>
-                      <p className="font-bold text-sm text-indigo-700">Active • Monthly Fee: ₹{student.transport_fee}</p>
+                      <p className="font-bold text-sm text-indigo-700">
+                        Active {profile?.role !== 'teacher' && `• Monthly Fee: ₹${student.transport_fee}`}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -388,92 +392,94 @@ export default function StudentProfile() {
       </div>
 
       {/* Payment Records */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between px-2">
-          <h3 className="text-xl font-black text-gray-900 flex items-center">
-            <CreditCard className="h-6 w-6 mr-2 text-indigo-600" />
-            Fee History
-          </h3>
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-            {payments?.length || 0} Records
-          </span>
-        </div>
+      {profile?.role !== 'teacher' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-xl font-black text-gray-900 flex items-center">
+              <CreditCard className="h-6 w-6 mr-2 text-indigo-600" />
+              Fee History
+            </h3>
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+              {payments?.length || 0} Records
+            </span>
+          </div>
 
-        <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
-          {isPaymentsLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-            </div>
-          ) : !payments || payments.length === 0 ? (
-            <div className="p-16 text-center">
-              <Clock className="h-12 w-12 text-gray-200 mx-auto mb-4" />
-              <p className="text-gray-400 font-bold">No payment records found</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-50/50">
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Date</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Month/Year</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Category</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Remarks</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 text-right">Amount</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {payments.map((payment, index) => (
-                    <motion.tr
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.03 }}
-                      key={payment.id}
-                      className="hover:bg-indigo-50/30 transition-colors group"
-                    >
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-bold text-gray-900">
-                          {new Date(payment.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-bold text-indigo-600">
-                          {payment.month_year ? new Date(payment.month_year + '-01').toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—'}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-bold text-gray-700">{payment.category}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-xs text-gray-500 italic">{payment.remarks || '—'}</p>
-                      </td>
+          <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+            {isPaymentsLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+              </div>
+            ) : !payments || payments.length === 0 ? (
+              <div className="p-16 text-center">
+                <Clock className="h-12 w-12 text-gray-200 mx-auto mb-4" />
+                <p className="text-gray-400 font-bold">No payment records found</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50/50">
+                      <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Date</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Month/Year</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Category</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">Remarks</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 text-right">Amount</th>
+                      <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {payments.map((payment, index) => (
+                      <motion.tr
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        key={payment.id}
+                        className="hover:bg-indigo-50/30 transition-colors group"
+                      >
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-bold text-gray-900">
+                            {new Date(payment.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-bold text-indigo-600">
+                            {payment.month_year ? new Date(payment.month_year + '-01').toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—'}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-bold text-gray-700">{payment.category}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-xs text-gray-500 italic">{payment.remarks || '—'}</p>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <p className="text-sm font-black text-gray-900">₹{payment.amount.toLocaleString('en-IN')}</p>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-green-100 text-green-700 uppercase tracking-wider">
+                            Paid
+                          </span>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-50/30">
+                      <td colSpan={3} className="px-6 py-4 text-sm font-black text-gray-900 text-right uppercase tracking-widest">Total Paid</td>
                       <td className="px-6 py-4 text-right">
-                        <p className="text-sm font-black text-gray-900">₹{payment.amount.toLocaleString('en-IN')}</p>
+                        <p className="text-lg font-black text-indigo-600">
+                          ₹{payments.reduce((sum, p) => sum + p.amount, 0).toLocaleString('en-IN')}
+                        </p>
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-green-100 text-green-700 uppercase tracking-wider">
-                          Paid
-                        </span>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-gray-50/30">
-                    <td colSpan={3} className="px-6 py-4 text-sm font-black text-gray-900 text-right uppercase tracking-widest">Total Paid</td>
-                    <td className="px-6 py-4 text-right">
-                      <p className="text-lg font-black text-indigo-600">
-                        ₹{payments.reduce((sum, p) => sum + p.amount, 0).toLocaleString('en-IN')}
-                      </p>
-                    </td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { Student, Attendance } from '../types';
@@ -14,7 +14,7 @@ import {
   UserX
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function AttendancePage() {
   const [selectedClass, setSelectedClass] = useState('Nursery');
@@ -31,7 +31,8 @@ export default function AttendancePage() {
         .select('*')
         .eq('class_name', selectedClass)
         .eq('section', selectedSection)
-        .order('name');
+        .order('roll_number', { ascending: true })
+        .order('name', { ascending: true });
       if (error) throw error;
       return data as Student[];
     }
@@ -83,12 +84,27 @@ export default function AttendancePage() {
     }
   });
 
-  const toggleStatus = (studentId: string) => {
+  const updateStatus = (studentId: string, status: 'present' | 'absent') => {
     setAttendanceData(prev => ({
       ...prev,
-      [studentId]: prev[studentId] === 'present' ? 'absent' : 'present'
+      [studentId]: status
     }));
   };
+
+  const hasChanges = useMemo(() => {
+    const initial: Record<string, 'present' | 'absent'> = {};
+    if (existingAttendance) {
+      existingAttendance.forEach(a => {
+        initial[a.student_id] = a.status as 'present' | 'absent';
+      });
+    }
+    
+    const currentIds = Object.keys(attendanceData);
+    const initialIds = Object.keys(initial);
+    
+    if (currentIds.length !== initialIds.length) return true;
+    return currentIds.some(id => attendanceData[id] !== initial[id]);
+  }, [attendanceData, existingAttendance]);
 
   const markAll = (status: 'present' | 'absent') => {
     const newData: Record<string, 'present' | 'absent'> = {};
@@ -173,7 +189,7 @@ export default function AttendancePage() {
       </div>
 
       {/* Student List */}
-      <div className="space-y-3">
+      <div className="space-y-3 pb-[40px]">
         {isLoadingStudents ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
@@ -189,7 +205,10 @@ export default function AttendancePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
               key={student.id}
-              onClick={() => toggleStatus(student.id)}
+              onClick={() => {
+                const current = attendanceData[student.id];
+                updateStatus(student.id, current === 'present' ? 'absent' : 'present');
+              }}
               className={cn(
                 "p-4 rounded-3xl border transition-all flex items-center justify-between cursor-pointer",
                 attendanceData[student.id] === 'present' 
@@ -215,18 +234,30 @@ export default function AttendancePage() {
                 </div>
               </div>
               <div className="flex space-x-2">
-                <div className={cn(
-                  "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
-                  attendanceData[student.id] === 'present' ? "bg-green-600 text-white scale-110 shadow-lg" : "bg-gray-100 text-gray-400"
-                )}>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateStatus(student.id, 'present');
+                  }}
+                  className={cn(
+                    "h-8 w-8 rounded-lg flex items-center justify-center transition-all active:scale-90",
+                    attendanceData[student.id] === 'present' ? "bg-green-600 text-white scale-110 shadow-lg" : "bg-gray-100 text-gray-400"
+                  )}
+                >
                   <Check className="h-5 w-5" />
-                </div>
-                <div className={cn(
-                  "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
-                  attendanceData[student.id] === 'absent' ? "bg-red-600 text-white scale-110 shadow-lg" : "bg-gray-100 text-gray-400"
-                )}>
+                </button>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateStatus(student.id, 'absent');
+                  }}
+                  className={cn(
+                    "h-8 w-8 rounded-lg flex items-center justify-center transition-all active:scale-90",
+                    attendanceData[student.id] === 'absent' ? "bg-red-600 text-white scale-110 shadow-lg" : "bg-gray-100 text-gray-400"
+                  )}
+                >
                   <X className="h-5 w-5" />
-                </div>
+                </button>
               </div>
             </motion.div>
           ))
@@ -234,22 +265,31 @@ export default function AttendancePage() {
       </div>
 
       {/* Sticky Save Button */}
-      <div className="fixed bottom-24 inset-x-6 md:bottom-8 md:left-72 md:right-8 z-40">
-        <button
-          onClick={() => saveMutation.mutate()}
-          disabled={saveMutation.isPending || !Object.keys(attendanceData).length}
-          className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-200 flex items-center justify-center hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
-        >
-          {saveMutation.isPending ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <>
-              <Save className="mr-2 h-5 w-5" />
-              Save Attendance
-            </>
-          )}
-        </button>
-      </div>
+      <AnimatePresence>
+        {hasChanges && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-24 inset-x-6 md:bottom-8 md:left-72 md:right-8 z-40"
+          >
+            <button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-200 flex items-center justify-center hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
+            >
+              {saveMutation.isPending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <Save className="mr-2 h-5 w-5" />
+                  Save Attendance
+                </>
+              )}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -12,8 +12,12 @@ import {
 import { formatCurrency } from '../lib/utils';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
+  const { profile } = useAuth();
+  const isAdminOrAccountant = profile?.role === 'admin' || profile?.role === 'accountant';
+
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
@@ -31,9 +35,9 @@ export default function Dashboard() {
       ] = await Promise.all([
         supabase.from('students').select('*', { count: 'exact', head: true }),
         supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('date', today).eq('status', 'present'),
-        supabase.from('payments').select('student_id, amount').eq('month_year', currentMonth),
-        supabase.from('expenses').select('amount').gte('date', startOfMonth),
-        supabase.from('class_fees').select('*'),
+        isAdminOrAccountant ? supabase.from('payments').select('student_id, amount').eq('month_year', currentMonth) : Promise.resolve({ data: [] }),
+        isAdminOrAccountant ? supabase.from('expenses').select('amount').gte('date', startOfMonth) : Promise.resolve({ data: [] }),
+        isAdminOrAccountant ? supabase.from('class_fees').select('*') : Promise.resolve({ data: [] }),
         supabase.from('students').select('id, class_name, uses_transport, transport_fee')
       ]);
 
@@ -42,25 +46,30 @@ export default function Dashboard() {
       const attendanceRate = studentCount ? Math.round((presentCount || 0) / studentCount * 100) : 0;
 
       // Calculate real pending dues for current month
-      const currentMonthPayments = payments || [];
-      const studentDues = (allStudents || []).map(student => {
-        const classFee = classFees?.find(cf => cf.class_name === student.class_name)?.monthly_amount || 0;
-        const transportFee = student.uses_transport ? (student.transport_fee || 0) : 0;
-        const expectedTotal = Number(classFee) + Number(transportFee);
-        
-        const paidTotal = currentMonthPayments
-          .filter(p => p.student_id === student.id)
-          .reduce((sum, p) => sum + Number(p.amount), 0);
-        
-        return {
-          studentId: student.id,
-          due: Math.max(0, expectedTotal - paidTotal),
-          isUnpaid: paidTotal < expectedTotal
-        };
-      });
+      let pendingDues = 0;
+      let unpaidStudentCount = 0;
 
-      const pendingDues = studentDues.reduce((sum, d) => sum + d.due, 0);
-      const unpaidStudentCount = studentDues.filter(d => d.isUnpaid && d.due > 0).length;
+      if (isAdminOrAccountant) {
+        const currentMonthPayments = payments || [];
+        const studentDues = (allStudents || []).map(student => {
+          const classFee = classFees?.find(cf => cf.class_name === student.class_name)?.monthly_amount || 0;
+          const transportFee = student.uses_transport ? (student.transport_fee || 0) : 0;
+          const expectedTotal = Number(classFee) + Number(transportFee);
+          
+          const paidTotal = currentMonthPayments
+            .filter(p => p.student_id === student.id)
+            .reduce((sum, p) => sum + Number(p.amount), 0);
+          
+          return {
+            studentId: student.id,
+            due: Math.max(0, expectedTotal - paidTotal),
+            isUnpaid: paidTotal < expectedTotal
+          };
+        });
+
+        pendingDues = studentDues.reduce((sum, d) => sum + d.due, 0);
+        unpaidStudentCount = studentDues.filter(d => d.isUnpaid && d.due > 0).length;
+      }
 
       return {
         studentCount,
@@ -79,30 +88,34 @@ export default function Dashboard() {
       value: stats?.studentCount || 0, 
       icon: Users, 
       color: 'bg-blue-500',
-      link: '/students'
+      link: '/students',
+      visible: true
     },
     { 
       name: 'Today Attendance', 
       value: `${stats?.attendanceRate || 0}%`, 
       icon: CalendarCheck, 
       color: 'bg-green-500',
-      link: '/attendance'
+      link: '/attendance',
+      visible: true
     },
     { 
       name: 'Fees Collected', 
       value: formatCurrency(stats?.totalFees || 0), 
       icon: IndianRupee, 
       color: 'bg-indigo-500',
-      link: '/fees'
+      link: '/fees',
+      visible: isAdminOrAccountant
     },
     { 
       name: 'Monthly Expenses', 
       value: formatCurrency(stats?.totalExpenses || 0), 
       icon: TrendingDown, 
       color: 'bg-red-500',
-      link: '/expenses'
+      link: '/expenses',
+      visible: isAdminOrAccountant
     },
-  ];
+  ].filter(card => card.visible);
 
   if (isLoading) {
     return (
@@ -115,7 +128,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-2 ${isAdminOrAccountant ? 'md:grid-cols-4' : 'md:grid-cols-2'} gap-4`}>
         {cards.map((card, index) => (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -136,46 +149,52 @@ export default function Dashboard() {
       </div>
 
       {/* Alerts / Quick Actions */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-200">
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="text-lg font-bold">Pending Dues</h3>
-              <p className="text-indigo-100 text-sm mt-1">{stats?.unpaidStudentCount || 0} students have unpaid fees</p>
-              <p className="text-3xl font-bold mt-4">{formatCurrency(stats?.pendingDues || 0)}</p>
+      <div className={`grid ${isAdminOrAccountant ? 'md:grid-cols-2' : 'grid-cols-1'} gap-6`}>
+        {isAdminOrAccountant && (
+          <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-200">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-lg font-bold">Pending Dues</h3>
+                <p className="text-indigo-100 text-sm mt-1">{stats?.unpaidStudentCount || 0} students have unpaid fees</p>
+                <p className="text-3xl font-bold mt-4">{formatCurrency(stats?.pendingDues || 0)}</p>
+              </div>
+              <div className="bg-white/20 p-2 rounded-xl">
+                <AlertCircle className="h-6 w-6" />
+              </div>
             </div>
-            <div className="bg-white/20 p-2 rounded-xl">
-              <AlertCircle className="h-6 w-6" />
-            </div>
+            <Link 
+              to="/fees" 
+              className="mt-6 flex items-center justify-center w-full py-3 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-all active:scale-95"
+            >
+              View Details
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
           </div>
-          <Link 
-            to="/fees" 
-            className="mt-6 flex items-center justify-center w-full py-3 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-all active:scale-95"
-          >
-            View Details
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </div>
+        )}
 
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
           <h3 className="text-lg font-bold text-gray-900">Quick Actions</h3>
-          <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className={`grid ${isAdminOrAccountant ? 'grid-cols-2' : 'grid-cols-2'} gap-3 mt-4`}>
             <Link to="/attendance" className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all">
               <CalendarCheck className="h-6 w-6 text-indigo-600 mb-2" />
               <span className="text-xs font-semibold text-gray-700">Mark Attendance</span>
             </Link>
             <Link to="/students" className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all">
               <Users className="h-6 w-6 text-blue-600 mb-2" />
-              <span className="text-xs font-semibold text-gray-700">Add Student</span>
+              <span className="text-xs font-semibold text-gray-700">View Students</span>
             </Link>
-            <Link to="/fees" className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all">
-              <IndianRupee className="h-6 w-6 text-green-600 mb-2" />
-              <span className="text-xs font-semibold text-gray-700">Collect Fees</span>
-            </Link>
-            <Link to="/expenses" className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all">
-              <TrendingDown className="h-6 w-6 text-red-600 mb-2" />
-              <span className="text-xs font-semibold text-gray-700">Add Expense</span>
-            </Link>
+            {isAdminOrAccountant && (
+              <>
+                <Link to="/fees" className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all">
+                  <IndianRupee className="h-6 w-6 text-green-600 mb-2" />
+                  <span className="text-xs font-semibold text-gray-700">Collect Fees</span>
+                </Link>
+                <Link to="/expenses" className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all">
+                  <TrendingDown className="h-6 w-6 text-red-600 mb-2" />
+                  <span className="text-xs font-semibold text-gray-700">Add Expense</span>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -185,6 +204,7 @@ export default function Dashboard() {
     </div>
   );
 }
+
 
 
 

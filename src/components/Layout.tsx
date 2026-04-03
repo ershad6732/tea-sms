@@ -33,9 +33,9 @@ export default function Layout({ children, title }: LayoutProps) {
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Students', path: '/students', icon: GraduationCap },
     { name: 'Attendance', path: '/attendance', icon: CalendarCheck },
-    { name: 'Fees', path: '/fees', icon: IndianRupee },
+    { name: 'Fees', path: '/fees', icon: IndianRupee, roles: ['admin', 'accountant'] },
     { name: 'More', path: '/more', icon: MoreHorizontal },
-  ];
+  ].filter(item => !item.roles || (profile && item.roles.includes(profile.role)));
 
   const handleSignOut = async () => {
     await signOut();

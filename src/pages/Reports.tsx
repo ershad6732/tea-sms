@@ -36,6 +36,7 @@ import {
 import { formatCurrency, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
+import { useAuth } from '../context/AuthContext';
 
 type ReportTab = 'financial' | 'attendance' | 'students';
 
@@ -51,7 +52,9 @@ const sortClasses = (a: string, b: string) => {
 };
 
 export default function Reports() {
-  const [activeTab, setActiveTab] = useState<ReportTab>('financial');
+  const { profile } = useAuth();
+  const isAdminOrAccountant = profile?.role === 'admin' || profile?.role === 'accountant';
+  const [activeTab, setActiveTab] = useState<ReportTab>(isAdminOrAccountant ? 'financial' : 'attendance');
   const [startDate, setStartDate] = useState(format(subMonths(new Date(), 6), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
@@ -59,6 +62,7 @@ export default function Reports() {
   const { data: payments, isLoading: isLoadingPayments } = useQuery({
     queryKey: ['payments-report'],
     queryFn: async () => {
+      if (!isAdminOrAccountant) return [];
       const { data, error } = await supabase.from('payments').select('*').order('date', { ascending: true });
       if (error) throw error;
       return data;
@@ -68,6 +72,7 @@ export default function Reports() {
   const { data: expenses, isLoading: isLoadingExpenses } = useQuery({
     queryKey: ['expenses-report'],
     queryFn: async () => {
+      if (!isAdminOrAccountant) return [];
       const { data, error } = await supabase.from('expenses').select('*').order('date', { ascending: true });
       if (error) throw error;
       return data;
@@ -77,7 +82,11 @@ export default function Reports() {
   const { data: students, isLoading: isLoadingStudents } = useQuery({
     queryKey: ['students-report'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('students').select('*');
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .order('roll_number', { ascending: true })
+        .order('name', { ascending: true });
       if (error) throw error;
       return data;
     }
@@ -96,7 +105,7 @@ export default function Reports() {
 
   // Financial Data Processing
   const financialData = useMemo(() => {
-    if (!payments || !expenses) return [];
+    if (!payments || !expenses || !isAdminOrAccountant) return [];
 
     const start = parseISO(startDate);
     const end = parseISO(endDate);
@@ -122,11 +131,11 @@ export default function Reports() {
     });
 
     return Object.values(monthlyData);
-  }, [payments, expenses, startDate, endDate]);
+  }, [payments, expenses, startDate, endDate, isAdminOrAccountant]);
 
   // Expense Category Data
   const expenseCategoryData = useMemo(() => {
-    if (!expenses) return [];
+    if (!expenses || !isAdminOrAccountant) return [];
     const start = parseISO(startDate);
     const end = parseISO(endDate);
 
@@ -139,7 +148,7 @@ export default function Reports() {
     });
 
     return Object.entries(categories).map(([name, value]) => ({ name, value }));
-  }, [expenses, startDate, endDate]);
+  }, [expenses, startDate, endDate, isAdminOrAccountant]);
 
   // Attendance Data Processing
   const attendanceData = useMemo(() => {
@@ -182,6 +191,12 @@ export default function Reports() {
   const totalIncome = financialData.reduce((sum, d) => sum + d.income, 0);
   const totalExpense = financialData.reduce((sum, d) => sum + d.expense, 0);
   const netSavings = totalIncome - totalExpense;
+
+  const tabs = ([
+    isAdminOrAccountant ? 'financial' : null,
+    'attendance',
+    'students'
+  ].filter(Boolean) as ReportTab[]);
 
   if (isLoading) {
     return (
@@ -231,7 +246,7 @@ export default function Reports() {
 
       {/* Navigation Tabs */}
       <div className="flex p-1.5 bg-white border border-gray-100 rounded-[2rem] shadow-sm overflow-x-auto no-scrollbar">
-        {(['financial', 'attendance', 'students'] as ReportTab[]).map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -251,7 +266,7 @@ export default function Reports() {
       </div>
 
       <AnimatePresence mode="wait">
-        {activeTab === 'financial' && (
+        {activeTab === 'financial' && isAdminOrAccountant && (
           <motion.div
             key="financial"
             initial={{ opacity: 0, y: 20 }}
@@ -498,15 +513,21 @@ export default function Reports() {
       </AnimatePresence>
 
       {/* Export Button */}
-      <div className="fixed bottom-24 inset-x-6 md:bottom-8 md:left-72 md:right-8 z-40">
-        <button
-          onClick={() => alert('Report export started...')}
-          className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-200 flex items-center justify-center hover:bg-indigo-700 transition-all active:scale-95"
-        >
-          <Download className="mr-2 h-5 w-5" />
-          Download Full Report (PDF/Excel)
-        </button>
-      </div>
+
     </div>
   );
 }
+
+
+
+
+      // <div className="fixed bottom-24 inset-x-6 md:bottom-8 md:left-72 md:right-8 z-40">
+      //   <button
+      //     onClick={() => alert('Report export started...')}
+      //     className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-200 flex items-center justify-center hover:bg-indigo-700 transition-all active:scale-95"
+      //   >
+      //     <Download className="mr-2 h-5 w-5" />
+      //     Download Full Report (PDF/Excel)
+      //   </button>
+      // </div>
+      

@@ -24,8 +24,16 @@ const queryClient = new QueryClient({
   },
 });
 
-function PrivateRoute({ children, title }: { children: React.ReactNode; title: string }) {
-  const { user, loading } = useAuth();
+function PrivateRoute({ 
+  children, 
+  title, 
+  allowedRoles = ['admin', 'teacher', 'accountant'] 
+}: { 
+  children: React.ReactNode; 
+  title: string;
+  allowedRoles?: string[];
+}) {
+  const { user, profile, loading } = useAuth();
 
   if (loading) {
     return (
@@ -37,6 +45,10 @@ function PrivateRoute({ children, title }: { children: React.ReactNode; title: s
 
   if (!user) {
     return <Navigate to="/login" />;
+  }
+
+  if (profile && !allowedRoles.includes(profile.role)) {
+    return <Navigate to="/" />;
   }
 
   return <Layout title={title}>{children}</Layout>;
@@ -75,25 +87,25 @@ export default function App() {
             } />
             
             <Route path="/fees" element={
-              <PrivateRoute title="Fees Management">
+              <PrivateRoute title="Fees Management" allowedRoles={['admin', 'accountant']}>
                 <Fees />
               </PrivateRoute>
             } />
             
             <Route path="/staff" element={
-              <PrivateRoute title="Staff & Salaries">
+              <PrivateRoute title="Staff & Salaries" allowedRoles={['admin']}>
                 <Staff />
               </PrivateRoute>
             } />
             
             <Route path="/expenses" element={
-              <PrivateRoute title="Expenses">
+              <PrivateRoute title="Expenses" allowedRoles={['admin', 'accountant']}>
                 <Expenses />
               </PrivateRoute>
             } />
             
             <Route path="/funds" element={
-              <PrivateRoute title="Fund Management">
+              <PrivateRoute title="Fund Management" allowedRoles={['admin']}>
                 <Funds />
               </PrivateRoute>
             } />

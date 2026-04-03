@@ -39,7 +39,9 @@ export default function Fees() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('students')
-        .select('*, payments(*)');
+        .select('*, payments(*)')
+        .order('roll_number', { ascending: true })
+        .order('name', { ascending: true });
       if (error) {
         console.error('Error fetching students for fees:', error);
         throw error;

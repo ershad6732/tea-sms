@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS students (
   phone TEXT,
   address TEXT,
   roll_number INTEGER,
+  dob DATE,
   uses_transport BOOLEAN DEFAULT FALSE,
   transport_fee DECIMAL(10, 2) DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

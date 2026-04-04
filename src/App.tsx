@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query';
+import { Toaster, toast } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -16,10 +17,35 @@ import More from './pages/More';
 import StudentProfile from './pages/StudentProfile';
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error: any) => {
+      if (error?.message?.includes('Failed to fetch')) {
+        console.error('Network error: Please check your internet connection.');
+      } else if (error?.message?.includes('Refresh Token Not Found')) {
+        console.error('Session expired: Please log in again.');
+      }
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error: any) => {
+      if (error?.message?.includes('Failed to fetch')) {
+        toast.error('Network error: Please check your internet connection.');
+      } else if (error?.message?.includes('Refresh Token Not Found')) {
+        toast.error('Session expired: Please log in again.');
+      }
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        // Don't retry if it's a fetch error (likely offline) or auth error
+        if (error?.message?.includes('Failed to fetch') || 
+            error?.message?.includes('Refresh Token Not Found')) {
+          return false;
+        }
+        return failureCount < 1;
+      },
     },
   },
 });
@@ -59,6 +85,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Router>
+          <Toaster position="top-center" richColors />
           <Routes>
             <Route path="/login" element={<Login />} />
             

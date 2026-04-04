@@ -16,6 +16,7 @@ export interface Student {
   phone: string | null;
   address: string | null;
   roll_number: number | null;
+  dob: string | null;
   uses_transport: boolean;
   transport_fee: number | null;
   created_at: string;

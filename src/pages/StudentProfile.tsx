@@ -154,6 +154,18 @@ export default function StudentProfile() {
                   </div>
                 </div>
 
+                <div className="flex items-center space-x-3 text-gray-600 bg-gray-50 p-3 rounded-2xl">
+                  <div className="p-2 bg-white rounded-xl shadow-sm">
+                    <Calendar className="h-4 w-4 text-indigo-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400">Date of Birth</p>
+                    <p className="font-bold text-sm">
+                      {student.dob ? new Date(student.dob).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
                 <div className="flex items-center space-x-3 text-gray-600 bg-gray-50 p-3 rounded-2xl md:col-span-2">
                   <div className="p-2 bg-white rounded-xl shadow-sm">
                     <MapPin className="h-4 w-4 text-indigo-500" />

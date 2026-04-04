@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { Staff, Salary } from '../types';
 import { 
@@ -42,6 +43,7 @@ export default function StaffPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff'] });
       setIsAddStaffModalOpen(false);
+      toast.success('Staff member added successfully!');
     }
   });
 
@@ -55,6 +57,7 @@ export default function StaffPage() {
       queryClient.invalidateQueries({ queryKey: ['staff'] });
       setIsPaySalaryModalOpen(false);
       setSelectedStaff(null);
+      toast.success('Salary payment recorded successfully!');
     }
   });
 

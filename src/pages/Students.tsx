@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { Student } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -58,8 +59,34 @@ export default function Students() {
     mutationFn: async (newStudent: Partial<Student>) => {
       if (!profile || !['admin', 'teacher'].includes(profile.role)) {
         const errorMsg = `Permission denied: Your role is ${profile?.role || 'unknown'}. Only admins and teachers can add students.`;
-        alert(errorMsg);
+        toast.error(errorMsg);
         throw new Error(errorMsg);
+      }
+
+      // Check for duplicates
+      const isDuplicate = students?.some(s => 
+        s.name.toLowerCase() === newStudent.name?.toLowerCase() && 
+        s.class_name === newStudent.class_name &&
+        s.parent_name?.toLowerCase() === newStudent.parent_name?.toLowerCase()
+      );
+
+      if (isDuplicate) {
+        const errorMsg = `A student named "${newStudent.name}" already exists in Class ${newStudent.class_name} with the same parent name.`;
+        toast.error(errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      // Check for duplicate roll number in the same class
+      if (newStudent.roll_number) {
+        const rollDuplicate = students?.find(s => 
+          s.class_name === newStudent.class_name && 
+          s.roll_number === newStudent.roll_number
+        );
+        if (rollDuplicate) {
+          const errorMsg = `Roll number ${newStudent.roll_number} is already assigned to ${rollDuplicate.name} in Class ${newStudent.class_name}.`;
+          toast.error(errorMsg);
+          throw new Error(errorMsg);
+        }
       }
 
       const { data, error } = await supabase
@@ -68,7 +95,7 @@ export default function Students() {
         .select();
       if (error) {
         console.error('Error adding student:', error);
-        alert(`Failed to save student: ${error.message}`);
+        toast.error(`Failed to save student: ${error.message}`);
         throw error;
       }
       return data;
@@ -77,7 +104,7 @@ export default function Students() {
       queryClient.invalidateQueries({ queryKey: ['students'] });
       setIsAddModalOpen(false);
       setUsesTransport(false);
-      alert('Student saved successfully!');
+      toast.success('Student saved successfully!');
     }
   });
 
@@ -85,8 +112,22 @@ export default function Students() {
     mutationFn: async (updatedStudent: Partial<Student>) => {
       if (!profile || !['admin', 'teacher'].includes(profile.role)) {
         const errorMsg = 'Permission denied: Only admins and teachers can edit students.';
-        alert(errorMsg);
+        toast.error(errorMsg);
         throw new Error(errorMsg);
+      }
+
+      // Check for duplicate roll number in the same class (excluding current student)
+      if (updatedStudent.roll_number) {
+        const rollDuplicate = students?.find(s => 
+          s.id !== updatedStudent.id &&
+          s.class_name === updatedStudent.class_name && 
+          s.roll_number === updatedStudent.roll_number
+        );
+        if (rollDuplicate) {
+          const errorMsg = `Roll number ${updatedStudent.roll_number} is already assigned to ${rollDuplicate.name} in Class ${updatedStudent.class_name}.`;
+          toast.error(errorMsg);
+          throw new Error(errorMsg);
+        }
       }
 
       const { data, error } = await supabase
@@ -97,7 +138,7 @@ export default function Students() {
       
       if (error) {
         console.error('Error updating student:', error);
-        alert(`Failed to update student: ${error.message}`);
+        toast.error(`Failed to update student: ${error.message}`);
         throw error;
       }
       return data;
@@ -107,7 +148,7 @@ export default function Students() {
       setIsEditModalOpen(false);
       setSelectedStudentForEdit(null);
       setUsesTransport(false);
-      alert('Student updated successfully!');
+      toast.success('Student updated successfully!');
     }
   });
 
@@ -131,21 +172,23 @@ export default function Students() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
       setStudentToDelete(null);
+      toast.success('Student deleted successfully');
     },
     onError: (error: any) => {
-      alert(`Failed to delete student: ${error.message}`);
+      toast.error(`Failed to delete student: ${error.message}`);
     }
   });
 
   const bulkImportMutation = useMutation({
-    mutationFn: async (students: any[]) => {
+    mutationFn: async (studentsToImport: any[]) => {
       if (!profile || !['admin', 'teacher'].includes(profile.role)) {
         throw new Error('Permission denied: Only admins and teachers can import students.');
       }
 
-      const formattedStudents = students.map(s => ({
+      const formattedStudents = studentsToImport.map(s => ({
         name: s.name,
         roll_number: s.roll_number ? parseInt(s.roll_number) : null,
+        dob: s.dob || null,
         class_name: String(s.class_name),
         section: s.section || 'A',
         parent_name: s.parent_name || null,
@@ -155,20 +198,69 @@ export default function Students() {
         transport_fee: s.transport_fee ? parseFloat(s.transport_fee) : 0,
       }));
 
+      // Filter out duplicates within the import data
+      const uniqueInImport = formattedStudents.filter((student, index, self) =>
+        index === self.findIndex((t) => (
+          t.name.toLowerCase() === student.name.toLowerCase() &&
+          t.class_name === student.class_name &&
+          (t.parent_name || '').toLowerCase() === (student.parent_name || '').toLowerCase()
+        ))
+      );
+
+      // Filter out duplicate roll numbers within the import data (per class)
+      const uniqueRollsInImport = uniqueInImport.filter((student, index, self) => {
+        if (!student.roll_number) return true;
+        return index === self.findIndex((t) => (
+          t.class_name === student.class_name &&
+          t.roll_number === student.roll_number
+        ));
+      });
+
+      // Filter out duplicates against existing database records
+      const finalStudents = uniqueRollsInImport.filter(newStudent => {
+        // Check for duplicate name/parent/class
+        const nameExists = students?.some(s => 
+          s.name.toLowerCase() === newStudent.name.toLowerCase() && 
+          s.class_name === newStudent.class_name &&
+          (s.parent_name || '').toLowerCase() === (newStudent.parent_name || '').toLowerCase()
+        );
+        if (nameExists) return false;
+
+        // Check for duplicate roll number in same class
+        if (newStudent.roll_number) {
+          const rollExists = students?.some(s => 
+            s.class_name === newStudent.class_name && 
+            s.roll_number === newStudent.roll_number
+          );
+          if (rollExists) return false;
+        }
+
+        return true;
+      });
+
+      const skippedCount = formattedStudents.length - finalStudents.length;
+
+      if (finalStudents.length === 0) {
+        throw new Error('All students in the file already exist in the database.');
+      }
+
       const { data, error } = await supabase
         .from('students')
-        .insert(formattedStudents)
+        .insert(finalStudents)
         .select();
 
       if (error) throw error;
-      return data;
+      return { data, skippedCount };
     },
-    onSuccess: () => {
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
       setIsBulkModalOpen(false);
       setBulkData([]);
       setBulkError(null);
-      alert('Bulk import successful!');
+      const msg = result.skippedCount > 0 
+        ? `Import successful! ${result.data.length} students added, ${result.skippedCount} duplicates skipped.`
+        : 'Bulk import successful!';
+      toast.success(msg);
     },
     onError: (error: any) => {
       setBulkError(error.message);
@@ -212,6 +304,7 @@ export default function Students() {
       {
         name: 'John Doe',
         roll_number: '101',
+        dob: '2015-05-15',
         class_name: '5',
         section: 'A',
         parent_name: 'Robert Doe',
@@ -223,6 +316,7 @@ export default function Students() {
       {
         name: 'Jane Smith',
         roll_number: '102',
+        dob: '2016-08-20',
         class_name: '6',
         section: 'B',
         parent_name: 'Mary Smith',
@@ -439,7 +533,8 @@ export default function Students() {
                   <ul className="text-xs text-gray-500 space-y-2 list-disc pl-4">
                     <li>Download the sample CSV to see the required format.</li>
                     <li>Required columns: <span className="font-bold text-gray-700">name, class_name</span>.</li>
-                    <li>Optional columns: <span className="font-bold text-gray-700">roll_number, section, parent_name, phone, address, uses_transport, transport_fee</span>.</li>
+                    <li>Optional columns: <span className="font-bold text-gray-700">roll_number, dob, section, parent_name, phone, address, uses_transport, transport_fee</span>.</li>
+                    <li>For <span className="font-bold text-gray-700">dob</span>, use YYYY-MM-DD format.</li>
                     <li>For <span className="font-bold text-gray-700">uses_transport</span>, use 'true' or 'false'.</li>
                   </ul>
                   <button
@@ -508,6 +603,7 @@ export default function Students() {
                 addStudentMutation.mutate({
                   name: formData.get('name') as string,
                   roll_number: formData.get('roll_number') ? parseInt(formData.get('roll_number') as string) : null,
+                  dob: formData.get('dob') as string || null,
                   class_name: formData.get('class_name') as string,
                   section: formData.get('section') as string,
                   parent_name: formData.get('parent_name') as string,
@@ -520,6 +616,10 @@ export default function Students() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
                   <input name="name" required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Enter student name" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Date of Birth</label>
+                  <input name="dob" type="date" className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Roll Number</label>
@@ -626,6 +726,7 @@ export default function Students() {
                   id: selectedStudentForEdit.id,
                   name: formData.get('name') as string,
                   roll_number: formData.get('roll_number') ? parseInt(formData.get('roll_number') as string) : null,
+                  dob: formData.get('dob') as string || null,
                   class_name: formData.get('class_name') as string,
                   section: formData.get('section') as string,
                   parent_name: formData.get('parent_name') as string,
@@ -638,6 +739,10 @@ export default function Students() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
                   <input name="name" defaultValue={selectedStudentForEdit.name} required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Date of Birth</label>
+                  <input name="dob" type="date" defaultValue={selectedStudentForEdit.dob || ''} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Roll Number</label>

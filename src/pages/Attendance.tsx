@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { Student, Attendance } from '../types';
 import { 
@@ -80,7 +81,7 @@ export default function AttendancePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
-      alert('Attendance saved successfully!');
+      toast.success('Attendance saved successfully!');
     }
   });
 

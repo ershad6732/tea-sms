@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { FundTransaction } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -66,9 +67,11 @@ export default function Funds() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['fund-transactions'] });
       setActiveTab('history');
+      const isCredit = data?.[0]?.type === 'CREDIT';
+      toast.success(isCredit ? 'Funds added successfully!' : 'Funds withdrawn successfully!');
     }
   });
 
@@ -489,7 +492,7 @@ export default function Funds() {
                 const remark = formData.get('remark') as string;
 
                 if (amount > balance) {
-                  alert('Insufficient balance for this withdrawal.');
+                  toast.error('Insufficient balance for this withdrawal.');
                   return;
                 }
 

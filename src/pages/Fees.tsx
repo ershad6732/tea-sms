@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { Student, Payment, ClassFee, ClassExtraFee } from '../types';
 import { 
@@ -81,7 +82,7 @@ export default function Fees() {
         .select();
       if (error) {
         console.error('Error updating class fee:', error);
-        alert(`Failed to update fee: ${error.message}. Make sure you have applied the SQL schema and have admin permissions.`);
+        toast.error(`Failed to update fee: ${error.message}. Make sure you have applied the SQL schema and have admin permissions.`);
         throw error;
       }
       return data;
@@ -89,6 +90,7 @@ export default function Fees() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['class-fees'] });
       setIsSettingsModalOpen(false);
+      toast.success('Class fee updated successfully!');
     }
   });
 
@@ -106,6 +108,7 @@ export default function Fees() {
       setIsPayModalOpen(false);
       setSelectedStudent(null);
       setSelectedMonthsForPayment([]);
+      toast.success('Payment recorded successfully!');
     }
   });
 
@@ -121,6 +124,7 @@ export default function Fees() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students-fees'] });
+      toast.success('Payment updated successfully!');
     }
   });
 
@@ -134,6 +138,7 @@ export default function Fees() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students-fees'] });
+      toast.success('Payment deleted successfully!');
     }
   });
 
@@ -150,6 +155,7 @@ export default function Fees() {
       queryClient.invalidateQueries({ queryKey: ['class-extra-fees'] });
       queryClient.invalidateQueries({ queryKey: ['students-fees'] });
       setIsSettingsModalOpen(false);
+      toast.success('Extra fees updated successfully!');
     }
   });
 

@@ -67,7 +67,7 @@ export default function Layout({ children, title }: LayoutProps) {
                   <div className="bg-indigo-600 p-2 rounded-xl">
                     <GraduationCap className="h-6 w-6 text-white" />
                   </div>
-                  <span className="text-xl font-bold text-gray-900">Gramshala</span>
+                  <span className="text-xl font-bold text-gray-900">The Enlightened Academy</span>
                 </div>
                 <button 
                   onClick={() => setIsMobileMenuOpen(false)}
@@ -172,7 +172,7 @@ export default function Layout({ children, title }: LayoutProps) {
           <div className="bg-indigo-600 p-2 rounded-xl">
             <GraduationCap className="h-6 w-6 text-white" />
           </div>
-          <span className="text-xl font-bold text-gray-900">Gramshala</span>
+          <span className="text-xl font-bold text-gray-900">The Enlightened Academy</span>
         </div>
 
         <nav className="flex-1 px-4 space-y-1 mt-4">

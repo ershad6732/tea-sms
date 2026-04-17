@@ -115,7 +115,7 @@ export default function AttendancePage() {
     setAttendanceData(newData);
   };
 
-  const classes = ['Nursery', 'LKG', 'UKG', '1', '2', '3', '4'];
+  const classes = ['Nursery', 'UKG', 'LKG', 'STD I', 'STD II', 'STD III', 'STD IV', 'STD V', 'STD VI'];
 
   return (
     <div className="space-y-6">

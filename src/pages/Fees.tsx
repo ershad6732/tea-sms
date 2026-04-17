@@ -166,7 +166,7 @@ export default function Fees() {
     return matchesSearch && matchesClass;
   });
 
-  const classes = ['All', 'Nursery', 'LKG', 'UKG', '1', '2', '3', '4'];
+  const classes = ['All', 'Nursery', 'UKG', 'LKG', 'STD I', 'STD II', 'STD III', 'STD IV', 'STD V', 'STD VI'];
 
   const getPaidAmountForMonth = (student: Student & { payments: Payment[] }, month: string) => {
     return student.payments

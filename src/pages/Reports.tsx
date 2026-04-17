@@ -41,7 +41,7 @@ import { useAuth } from '../context/AuthContext';
 type ReportTab = 'financial' | 'attendance' | 'students';
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
-const CLASS_ORDER = ['Nursery', 'LKG', 'UKG', '1', '2', '3', '4'];
+const CLASS_ORDER = ['Nursery', 'UKG', 'LKG', 'STD I', 'STD II', 'STD III', 'STD IV', 'STD V', 'STD VI'];
 
 const sortClasses = (a: string, b: string) => {
   const indexA = CLASS_ORDER.indexOf(a);

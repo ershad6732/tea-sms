@@ -63,27 +63,15 @@ export default function Students() {
         throw new Error(errorMsg);
       }
 
-      // Check for duplicates
-      const isDuplicate = students?.some(s => 
-        s.name.toLowerCase() === newStudent.name?.toLowerCase() && 
-        s.class_name === newStudent.class_name &&
-        s.parent_name?.toLowerCase() === newStudent.parent_name?.toLowerCase()
-      );
-
-      if (isDuplicate) {
-        const errorMsg = `A student named "${newStudent.name}" already exists in Class ${newStudent.class_name} with the same parent name.`;
-        toast.error(errorMsg);
-        throw new Error(errorMsg);
-      }
-
-      // Check for duplicate roll number in the same class
+      // Check for duplicate roll number in the same class and section
       if (newStudent.roll_number) {
         const rollDuplicate = students?.find(s => 
           s.class_name === newStudent.class_name && 
+          s.section === newStudent.section &&
           s.roll_number === newStudent.roll_number
         );
         if (rollDuplicate) {
-          const errorMsg = `Roll number ${newStudent.roll_number} is already assigned to ${rollDuplicate.name} in Class ${newStudent.class_name}.`;
+          const errorMsg = `Roll number ${newStudent.roll_number} is already assigned to ${rollDuplicate.name} in Class ${newStudent.class_name} Section ${newStudent.section}.`;
           toast.error(errorMsg);
           throw new Error(errorMsg);
         }
@@ -116,15 +104,16 @@ export default function Students() {
         throw new Error(errorMsg);
       }
 
-      // Check for duplicate roll number in the same class (excluding current student)
+      // Check for duplicate roll number in the same class and section (excluding current student)
       if (updatedStudent.roll_number) {
         const rollDuplicate = students?.find(s => 
           s.id !== updatedStudent.id &&
           s.class_name === updatedStudent.class_name && 
+          s.section === updatedStudent.section &&
           s.roll_number === updatedStudent.roll_number
         );
         if (rollDuplicate) {
-          const errorMsg = `Roll number ${updatedStudent.roll_number} is already assigned to ${rollDuplicate.name} in Class ${updatedStudent.class_name}.`;
+          const errorMsg = `Roll number ${updatedStudent.roll_number} is already assigned to ${rollDuplicate.name} in Class ${updatedStudent.class_name} Section ${updatedStudent.section}.`;
           toast.error(errorMsg);
           throw new Error(errorMsg);
         }
@@ -194,42 +183,30 @@ export default function Students() {
         parent_name: s.parent_name || null,
         phone: s.phone || null,
         address: s.address || null,
-        uses_transport: String(s.uses_transport).toLowerCase() === 'true' || s.uses_transport === '1' || s.uses_transport === 1,
+        uses_transport: String(s.uses_transport).toLowerCase() === 'true' || 
+                       String(s.uses_transport).toLowerCase() === 'y' ||
+                       s.uses_transport === '1' || 
+                       s.uses_transport === 1,
         transport_fee: s.transport_fee ? parseFloat(s.transport_fee) : 0,
       }));
 
-      // Filter out duplicates within the import data
-      const uniqueInImport = formattedStudents.filter((student, index, self) =>
-        index === self.findIndex((t) => (
-          t.name.toLowerCase() === student.name.toLowerCase() &&
-          t.class_name === student.class_name &&
-          (t.parent_name || '').toLowerCase() === (student.parent_name || '').toLowerCase()
-        ))
-      );
-
-      // Filter out duplicate roll numbers within the import data (per class)
-      const uniqueRollsInImport = uniqueInImport.filter((student, index, self) => {
+      // Filter out duplicate roll numbers within the import data (per class and section)
+      const uniqueRollsInImport = formattedStudents.filter((student, index, self) => {
         if (!student.roll_number) return true;
         return index === self.findIndex((t) => (
           t.class_name === student.class_name &&
+          t.section === student.section &&
           t.roll_number === student.roll_number
         ));
       });
 
       // Filter out duplicates against existing database records
       const finalStudents = uniqueRollsInImport.filter(newStudent => {
-        // Check for duplicate name/parent/class
-        const nameExists = students?.some(s => 
-          s.name.toLowerCase() === newStudent.name.toLowerCase() && 
-          s.class_name === newStudent.class_name &&
-          (s.parent_name || '').toLowerCase() === (newStudent.parent_name || '').toLowerCase()
-        );
-        if (nameExists) return false;
-
-        // Check for duplicate roll number in same class
+        // Check for duplicate roll number in same class and section
         if (newStudent.roll_number) {
           const rollExists = students?.some(s => 
             s.class_name === newStudent.class_name && 
+            s.section === newStudent.section &&
             s.roll_number === newStudent.roll_number
           );
           if (rollExists) return false;
@@ -345,7 +322,7 @@ export default function Students() {
     return matchesSearch && matchesClass;
   });
 
-  const classes = ['All', 'Nursery', 'LKG', 'UKG', '1', '2', '3', '4'];
+  const classes = ['All', 'Nursery', 'UKG', 'LKG', 'STD I', 'STD II', 'STD III', 'STD IV', 'STD v', 'STD VI'];
 
   return (
     <div className="space-y-6">
@@ -442,7 +419,7 @@ export default function Students() {
                       setUsesTransport(student.uses_transport);
                       setIsEditModalOpen(true);
                     }}
-                    className="p-2 rounded-xl bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+                    className="hidden md:flex p-2 rounded-xl bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
                   >
                     <User className="h-5 w-5" />
                   </button>

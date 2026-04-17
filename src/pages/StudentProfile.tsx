@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { Student, Payment } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -15,17 +15,82 @@ import {
   Clock,
   CheckCircle2,
   Download,
-  ShieldCheck
+  ShieldCheck,
+  Edit2,
+  X
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { formatCurrency, cn } from '../lib/utils';
+import { motion, AnimatePresence } from 'motion/react';
 import * as htmlToImage from 'html-to-image';
+import { toast } from 'sonner';
 
 export default function StudentProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const idCardRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [usesTransport, setUsesTransport] = useState(false);
+
+  const classes = ['Nursery', 'UKG', 'LKG', 'STD I', 'STD II', 'STD III', 'STD IV', 'STD V', 'STD VI'];
+
+  const editMutation = useMutation({
+    mutationFn: async (updatedStudent: Partial<Student>) => {
+      // Duplicate roll number check
+      const { data: existingStudents } = await supabase.from('students').select('id, roll_number, class_name, section, name');
+      if (updatedStudent.roll_number && existingStudents) {
+        const duplicate = existingStudents.find(s => 
+          s.id !== updatedStudent.id &&
+          s.class_name === updatedStudent.class_name &&
+          s.section === updatedStudent.section &&
+          s.roll_number === updatedStudent.roll_number
+        );
+        if (duplicate) {
+          const msg = `Roll number ${updatedStudent.roll_number} is already assigned to ${duplicate.name} in Class ${updatedStudent.class_name} Section ${updatedStudent.section}.`;
+          toast.error(msg);
+          throw new Error(msg);
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('students')
+        .update(updatedStudent)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student', id] });
+      setIsEditModalOpen(false);
+      toast.success('Profile updated successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(`Update failed: ${error.message}`);
+    }
+  });
+
+  const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const updatedStudent = {
+      id: student?.id,
+      name: formData.get('name') as string,
+      roll_number: formData.get('roll_number') ? parseInt(formData.get('roll_number') as string) : null,
+      class_name: formData.get('class_name') as string,
+      section: formData.get('section') as string,
+      parent_name: formData.get('parent_name') as string,
+      phone: formData.get('phone') as string,
+      address: formData.get('address') as string,
+      dob: formData.get('dob') as string || null,
+      uses_transport: usesTransport,
+      transport_fee: usesTransport ? parseFloat(formData.get('transport_fee') as string || '0') : 0
+    };
+    editMutation.mutate(updatedStudent);
+  };
 
   const downloadIDCard = async () => {
     if (!idCardRef.current) return;
@@ -99,6 +164,195 @@ export default function StudentProfile() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-12">
+      <AnimatePresence>
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditModalOpen(false)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              className="relative w-full max-w-2xl bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl p-8 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900">Edit Profile</h2>
+                  <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mt-1">Update student details</p>
+                </div>
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-xl transition-all"
+                >
+                  <X className="h-6 w-6 text-gray-400" />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Basic Info */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Full Name</label>
+                    <input
+                      name="name"
+                      required
+                      defaultValue={student.name}
+                      className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-bold"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Roll Number</label>
+                    <input
+                      name="roll_number"
+                      type="number"
+                      defaultValue={student.roll_number || ''}
+                      className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-bold"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Class</label>
+                    <select
+                      name="class_name"
+                      required
+                      defaultValue={student.class_name}
+                      className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-bold appearance-none"
+                    >
+                      {classes.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Section</label>
+                    <select
+                      name="section"
+                      required
+                      defaultValue={student.section}
+                      className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-bold appearance-none"
+                    >
+                      <option value="A">A</option>
+                      <option value="B">B</option>
+                      <option value="C">C</option>
+                      <option value="D">D</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Date of Birth</label>
+                    <input
+                      name="dob"
+                      type="date"
+                      defaultValue={student.dob || ''}
+                      className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-bold"
+                    />
+                  </div>
+
+                  {/* Parent Info */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Parent/Guardian</label>
+                    <input
+                      name="parent_name"
+                      defaultValue={student.parent_name || ''}
+                      className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-bold"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Phone Number</label>
+                    <input
+                      name="phone"
+                      defaultValue={student.phone || ''}
+                      className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-bold"
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Residential Address</label>
+                    <textarea
+                      name="address"
+                      rows={2}
+                      defaultValue={student.address || ''}
+                      className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-bold resize-none"
+                    />
+                  </div>
+
+                  {/* Transport */}
+                  <div className="md:col-span-2 p-6 bg-gray-50 rounded-[2rem] border border-gray-100 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-white rounded-xl shadow-sm">
+                          <CreditCard className="h-5 w-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-gray-900">Transport Service</p>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">School bus facility</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUsesTransport(!usesTransport)}
+                        className={cn(
+                          "relative inline-flex h-6 w-11 items-center rounded-full transition-all focus:outline-none",
+                          usesTransport ? "bg-indigo-600" : "bg-gray-200"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "inline-block h-4 w-4 transform rounded-full bg-white transition-all",
+                            usesTransport ? "translate-x-6" : "translate-x-1"
+                          )}
+                        />
+                      </button>
+                    </div>
+
+                    {usesTransport && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="space-y-2 pt-4 border-t border-gray-200"
+                      >
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Monthly Transport Fee (₹)</label>
+                        <input
+                          name="transport_fee"
+                          type="number"
+                          defaultValue={student.transport_fee || 0}
+                          className="w-full px-5 py-4 bg-white border border-gray-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all font-bold"
+                        />
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all active:scale-95"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editMutation.isPending}
+                    className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                  >
+                    {editMutation.isPending ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <button 
@@ -108,7 +362,19 @@ export default function StudentProfile() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h1 className="text-xl font-bold text-gray-900">Student Profile</h1>
-        <div className="w-10" /> {/* Spacer */}
+        {profile?.role !== 'teacher' ? (
+          <button 
+            onClick={() => {
+              setUsesTransport(student.uses_transport);
+              setIsEditModalOpen(true);
+            }}
+            className="p-2 rounded-xl bg-white border border-gray-100 text-gray-600 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm"
+          >
+            <Edit2 className="h-5 w-5" />
+          </button>
+        ) : (
+          <div className="w-10" />
+        )}
       </div>
 
       {/* Profile Card & ID Section */}
